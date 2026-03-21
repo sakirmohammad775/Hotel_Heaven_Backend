@@ -1,0 +1,131 @@
+from rest_framework import serializers
+from bookings.models import Cart, CartItem, Booking, BookingItem
+from hotels.models import Hotel
+from bookings.services import BookingService
+
+
+class EmptySerializer(serializers.Serializer):
+    pass
+
+
+# 🔹 Simple Hotel (like SimpleProduct)
+class SimpleHotelSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Hotel
+        fields = ['id', 'name', 'price']
+
+
+# 🔹 Add to Cart
+class AddCartItemSerializer(serializers.ModelSerializer):
+    hotel_id = serializers.IntegerField()
+
+    class Meta:
+        model = CartItem
+        fields = ['id', 'hotel_id', 'quantity']
+
+    def save(self, **kwargs):
+        cart_id = self.context['cart_id']
+        hotel_id = self.validated_data['hotel_id']
+        quantity = self.validated_data['quantity']
+
+        try:
+            cart_item = CartItem.objects.get(
+                cart_id=cart_id, hotel_id=hotel_id)
+            cart_item.quantity += quantity
+            cart_item.save()
+            self.instance = cart_item
+        except CartItem.DoesNotExist:
+            self.instance = CartItem.objects.create(
+                cart_id=cart_id, **self.validated_data)
+
+        return self.instance
+
+    def validate_hotel_id(self, value):
+        if not Hotel.objects.filter(pk=value).exists():
+            raise serializers.ValidationError(
+                f"Hotel with id {value} does not exist")
+        return value
+
+
+class UpdateCartItemSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CartItem
+        fields = ['quantity']
+
+
+class CartItemSerializer(serializers.ModelSerializer):
+    hotel = SimpleHotelSerializer()
+    total_price = serializers.SerializerMethodField()
+
+    class Meta:
+        model = CartItem
+        fields = ['id', 'hotel', 'quantity', 'total_price']
+
+    def get_total_price(self, obj):
+        return obj.quantity * obj.hotel.price
+
+
+class CartSerializer(serializers.ModelSerializer):
+    items = CartItemSerializer(many=True, read_only=True)
+    total_price = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Cart
+        fields = ['id', 'user', 'items', 'total_price']
+        read_only_fields = ['user']
+
+    def get_total_price(self, cart):
+        return sum(
+            [item.hotel.price * item.quantity for item in cart.items.all()]
+        )
+
+
+# 🔹 Create Booking (like Order)
+class CreateBookingSerializer(serializers.Serializer):
+    cart_id = serializers.UUIDField()
+
+    def validate_cart_id(self, cart_id):
+        if not Cart.objects.filter(pk=cart_id).exists():
+            raise serializers.ValidationError('No cart found')
+
+        if not CartItem.objects.filter(cart_id=cart_id).exists():
+            raise serializers.ValidationError('Cart is empty')
+
+        return cart_id
+
+    def create(self, validated_data):
+        user_id = self.context['user_id']
+        cart_id = validated_data['cart_id']
+
+        try:
+            booking = BookingService.create_booking(
+                user_id=user_id, cart_id=cart_id)
+            return booking
+        except ValueError as e:
+            raise serializers.ValidationError(str(e))
+
+    def to_representation(self, instance):
+        return BookingSerializer(instance).data
+
+
+class BookingItemSerializer(serializers.ModelSerializer):
+    hotel = SimpleHotelSerializer()
+
+    class Meta:
+        model = BookingItem
+        fields = ['id', 'hotel', 'price', 'quantity', 'total_price']
+
+
+class UpdateBookingSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Booking
+        fields = ['status']
+
+
+class BookingSerializer(serializers.ModelSerializer):
+    items = BookingItemSerializer(many=True)
+
+    class Meta:
+        model = Booking
+        fields = ['id', 'user', 'status',
+                  'total_price', 'created_at', 'items']
