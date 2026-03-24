@@ -88,7 +88,7 @@ TEMPLATES = [
 WSGI_APPLICATION = "hotelheaven.wsgi.app"
 
 CORS_ALLOWED_ORIGINS = [
-    # "http://localhost:5173",
+    "http://localhost:5173",
     "https://hotel-heaven-frontend.vercel.app"
 ]
 
