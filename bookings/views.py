@@ -154,6 +154,48 @@ def initiate_payment(request):
         status=status.HTTP_400_BAD_REQUEST
     )
 
+@api_view(['POST'])
+def payment_success(request):
+    """SSLCommerz calls this after successful payment"""
+    tran_id = request.data.get("tran_id", "")  # e.g. "txn_42"
+    
+    try:
+        # Extract booking_id from tran_id (format: txn_{booking_id})
+        booking_id = tran_id.replace("txn_", "")
+        booking = Booking.objects.get(id=booking_id)
+        booking.is_paid = True
+        booking.status = "confirmed"
+        booking.save()
+        
+        # Redirect to frontend success page
+        return HttpResponseRedirect(f"{main_settings.FRONTEND_URL}/dashboard/bookings?payment=success")
+    
+    except Booking.DoesNotExist:
+        return HttpResponseRedirect(f"{main_settings.FRONTEND_URL}/dashboard/bookings?payment=failed")
+ 
+ 
+@api_view(['POST'])
+def payment_fail(request):
+    """SSLCommerz calls this on payment failure"""
+    tran_id = request.data.get("tran_id", "")
+    try:
+        booking_id = tran_id.replace("txn_", "")
+        booking = Booking.objects.get(id=booking_id)
+        booking.status = "failed"
+        booking.save()
+    except Booking.DoesNotExist:
+        pass
+    return HttpResponseRedirect(f"{main_settings.FRONTEND_URL}/checkout?payment=failed")
+ 
+ 
+@api_view(['POST'])
+def payment_cancel(request):
+    """SSLCommerz calls this on payment cancel"""
+    return HttpResponseRedirect(f"{main_settings.FRONTEND_URL}/checkout?payment=cancelled")
+ 
+ 
+
+
 # 🔹 Check if user booked hotel (for review permission)
 class HasBookedHotel(APIView):
     permission_classes = [IsAuthenticated]

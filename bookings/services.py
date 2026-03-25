@@ -1,11 +1,13 @@
 from bookings.models import Cart, CartItem, BookingItem, Booking
 from django.db import transaction
 from rest_framework.exceptions import PermissionDenied, ValidationError
+from django.utils import timezone
+from datetime import timedelta
 
 
 class BookingService:
     @staticmethod
-    def create_booking(user_id, cart_id):
+    def create_booking(user_id, cart_id, check_in=None, check_out=None):
         with transaction.atomic():
             cart = Cart.objects.get(pk=cart_id)
             cart_items = cart.items.select_related('hotel').all()
@@ -15,9 +17,13 @@ class BookingService:
                 for item in cart_items
             ])
 
+            # Default: check_in = today, check_out = tomorrow
+            today = timezone.now().date()
             booking = Booking.objects.create(
                 user_id=user_id,
-                total_price=total_price
+                total_price=total_price,
+                check_in=check_in or today,
+                check_out=check_out or (today + timedelta(days=1))
             )
 
             booking_items = [
@@ -32,7 +38,6 @@ class BookingService:
             ]
 
             BookingItem.objects.bulk_create(booking_items)
-
             cart.delete()
 
             return booking

@@ -12,7 +12,7 @@ class EmptySerializer(serializers.Serializer):
 class SimpleHotelSerializer(serializers.ModelSerializer):
     class Meta:
         model = Hotel
-        fields = ['id', 'name', 'price']
+        fields = ["id", "name", "price"]
 
 
 # 🔹 Add to Cart
@@ -21,36 +21,35 @@ class AddCartItemSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CartItem
-        fields = ['id', 'hotel_id', 'quantity']
+        fields = ["id", "hotel_id", "quantity"]
 
     def save(self, **kwargs):
-        cart_id = self.context['cart_id']
-        hotel_id = self.validated_data['hotel_id']
-        quantity = self.validated_data['quantity']
+        cart_id = self.context["cart_id"]
+        hotel_id = self.validated_data["hotel_id"]
+        quantity = self.validated_data["quantity"]
 
         try:
-            cart_item = CartItem.objects.get(
-                cart_id=cart_id, hotel_id=hotel_id)
+            cart_item = CartItem.objects.get(cart_id=cart_id, hotel_id=hotel_id)
             cart_item.quantity += quantity
             cart_item.save()
             self.instance = cart_item
         except CartItem.DoesNotExist:
             self.instance = CartItem.objects.create(
-                cart_id=cart_id, **self.validated_data)
+                cart_id=cart_id, **self.validated_data
+            )
 
         return self.instance
 
     def validate_hotel_id(self, value):
         if not Hotel.objects.filter(pk=value).exists():
-            raise serializers.ValidationError(
-                f"Hotel with id {value} does not exist")
+            raise serializers.ValidationError(f"Hotel with id {value} does not exist")
         return value
 
 
 class UpdateCartItemSerializer(serializers.ModelSerializer):
     class Meta:
         model = CartItem
-        fields = ['quantity']
+        fields = ["quantity"]
 
 
 class CartItemSerializer(serializers.ModelSerializer):
@@ -59,7 +58,7 @@ class CartItemSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CartItem
-        fields = ['id', 'hotel', 'quantity', 'total_price']
+        fields = ["id", "hotel", "quantity", "total_price"]
 
     def get_total_price(self, obj):
         return obj.quantity * obj.hotel.price
@@ -71,35 +70,49 @@ class CartSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Cart
-        fields = ['id', 'user', 'items', 'total_price']
-        read_only_fields = ['user']
+        fields = ["id", "user", "items", "total_price"]
+        read_only_fields = ["user"]
 
     def get_total_price(self, cart):
-        return sum(
-            [item.hotel.price * item.quantity for item in cart.items.all()]
-        )
+        return sum([item.hotel.price * item.quantity for item in cart.items.all()])
 
 
 # 🔹 Create Booking (like Order)
+# Replace only the CreateBookingSerializer in your bookings/serializers.py
+
+
 class CreateBookingSerializer(serializers.Serializer):
     cart_id = serializers.UUIDField()
+    check_in = serializers.DateField(required=False)
+    check_out = serializers.DateField(required=False)
 
     def validate_cart_id(self, cart_id):
         if not Cart.objects.filter(pk=cart_id).exists():
-            raise serializers.ValidationError('No cart found')
-
+            raise serializers.ValidationError("No cart found")
         if not CartItem.objects.filter(cart_id=cart_id).exists():
-            raise serializers.ValidationError('Cart is empty')
-
+            raise serializers.ValidationError("Cart is empty")
         return cart_id
 
+    def validate(self, data):
+        check_in = data.get("check_in")
+        check_out = data.get("check_out")
+        if check_in and check_out and check_out <= check_in:
+            raise serializers.ValidationError("check_out must be after check_in")
+        return data
+
     def create(self, validated_data):
-        user_id = self.context['user_id']
-        cart_id = validated_data['cart_id']
+        user_id = self.context["user_id"]
+        cart_id = validated_data["cart_id"]
+        check_in = validated_data.get("check_in")
+        check_out = validated_data.get("check_out")
 
         try:
             booking = BookingService.create_booking(
-                user_id=user_id, cart_id=cart_id)
+                user_id=user_id,
+                cart_id=cart_id,
+                check_in=check_in,
+                check_out=check_out,
+            )
             return booking
         except ValueError as e:
             raise serializers.ValidationError(str(e))
@@ -113,13 +126,13 @@ class BookingItemSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = BookingItem
-        fields = ['id', 'hotel', 'price', 'quantity', 'total_price']
+        fields = ["id", "hotel", "price", "quantity", "total_price"]
 
 
 class UpdateBookingSerializer(serializers.ModelSerializer):
     class Meta:
         model = Booking
-        fields = ['status']
+        fields = ["status"]
 
 
 class BookingSerializer(serializers.ModelSerializer):
@@ -127,5 +140,4 @@ class BookingSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Booking
-        fields = ['id', 'user', 'status',
-                  'total_price', 'created_at', 'items']
+        fields = ["id", "user", "status", "total_price", "created_at", "items"]
