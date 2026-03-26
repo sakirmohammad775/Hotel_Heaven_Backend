@@ -114,8 +114,8 @@ def initiate_payment(request):
     num_items = request.data.get("numItems")
 
     settings = {
-        'store_id': 'your_store_id',
-        'store_pass': 'your_store_pass',
+        'store_id': 'phima69a67724da275',
+        'store_pass': 'phima69a67724da275@ssl',
         'issandbox': True
     }
 
