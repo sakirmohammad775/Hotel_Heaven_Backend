@@ -163,20 +163,22 @@ def initiate_payment(request):
     )
 
 
-@api_view(["POST"])
+@api_view(['POST'])
 def payment_success(request):
     tran_id = request.data.get("tran_id", "")
     try:
         booking_id = tran_id.replace("txn_", "")
         booking = Booking.objects.get(id=booking_id)
-        booking.status = Booking.CONFIRMED  # ← use model constant, not string
+        booking.status = Booking.CONFIRMED
         booking.save()
+        # ← redirect to /payment/success not /dashboard/bookings
         return HttpResponseRedirect(
             f"{main_settings.FRONTEND_URL}/payment/success?booking_id={booking_id}"
         )
     except Booking.DoesNotExist:
-        return HttpResponseRedirect(f"{main_settings.FRONTEND_URL}/payment/failed")
-
+        return HttpResponseRedirect(
+            f"{main_settings.FRONTEND_URL}/payment/failed"
+        )
 
 @api_view(["POST"])
 def payment_fail(request):
