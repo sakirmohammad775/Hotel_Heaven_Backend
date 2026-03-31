@@ -83,21 +83,21 @@ class CartSerializer(serializers.ModelSerializer):
 
 class CreateBookingSerializer(serializers.Serializer):
     cart_id = serializers.UUIDField()
-    check_in = serializers.DateField(required=False)
-    check_out = serializers.DateField(required=False)
+    check_in = serializers.DateField(required=True) 
+    check_out = serializers.DateField(required=True)
+    # 🔹 YOU MUST ADD THIS LINE SO DJANGO ACCEPTS THE PRICE FROM REACT
+    total_price = serializers.DecimalField(max_digits=10, decimal_places=2, required=False)
 
     def validate_cart_id(self, cart_id):
         if not Cart.objects.filter(pk=cart_id).exists():
             raise serializers.ValidationError("No cart found")
-        if not CartItem.objects.filter(cart_id=cart_id).exists():
-            raise serializers.ValidationError("Cart is empty")
         return cart_id
 
     def validate(self, data):
         check_in = data.get("check_in")
         check_out = data.get("check_out")
         if check_in and check_out and check_out <= check_in:
-            raise serializers.ValidationError("check_out must be after check_in")
+            raise serializers.ValidationError("Check-out must be after check-in")
         return data
 
     def create(self, validated_data):
@@ -105,21 +105,22 @@ class CreateBookingSerializer(serializers.Serializer):
         cart_id = validated_data["cart_id"]
         check_in = validated_data.get("check_in")
         check_out = validated_data.get("check_out")
+        # Now this will actually contain the value from React
+        total_price = validated_data.get("total_price") 
 
         try:
-            booking = BookingService.create_booking(
+            return BookingService.create_booking(
                 user_id=user_id,
                 cart_id=cart_id,
                 check_in=check_in,
                 check_out=check_out,
+                total_price=total_price, 
             )
-            return booking
-        except ValueError as e:
+        except Exception as e:
             raise serializers.ValidationError(str(e))
 
     def to_representation(self, instance):
         return BookingSerializer(instance).data
-
 
 class BookingItemSerializer(serializers.ModelSerializer):
     hotel = SimpleHotelSerializer()
@@ -140,4 +141,7 @@ class BookingSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Booking
-        fields = ["id", "user", "status", "total_price", "created_at", "items"]
+        fields = [
+            "id", "user", "status", "total_price", 
+            "check_in", "check_out", "created_at", "items"
+        ]
