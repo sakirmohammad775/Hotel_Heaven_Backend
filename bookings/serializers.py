@@ -138,7 +138,7 @@ class UpdateBookingSerializer(serializers.ModelSerializer):
 
 class BookingSerializer(serializers.ModelSerializer):
     items = BookingItemSerializer(many=True)
-
+    user_email = serializers.EmailField(source='user.email', read_only=True, default="Guest")
     class Meta:
         model = Booking
         fields = [
