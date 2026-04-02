@@ -10,10 +10,10 @@ class User(AbstractUser):
     address = models.TextField(blank=True, null=True)
     phone_number = models.CharField(max_length=15, blank=True, null=True)
 
-    # ✅ important for email verification
+    # important for email verification
     is_verified = models.BooleanField(default=False)
 
-    # ✅ for booking system (wallet feature)
+    # for booking system (wallet feature)
     wallet = models.DecimalField(max_digits=10, decimal_places=2, default=0)
 
     USERNAME_FIELD = 'email'
