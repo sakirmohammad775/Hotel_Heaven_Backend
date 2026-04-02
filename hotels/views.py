@@ -97,27 +97,36 @@ client = genai.Client(api_key=API_KEY)
 
 class ConciergeBotView(APIView):
     def post(self, request):
-        # Get message safely
         user_query = request.data.get("message", "Hello")
+        # 1. INITIALIZE VARIABLE AT THE TOP (Fixes "not defined" error)
+        hotel_data = "No hotels currently available in our registry."
         
         try:
-            # 🔹 THE FIX: Use "models/gemini-2.0-flash" or "models/gemini-1.5-flash"
-            # Adding the "models/" prefix is often required by the v1beta endpoint
+            # 2. FETCH DATA
+            hotels = Hotel.objects.all()
+            if hotels.exists():
+                hotel_list = []
+                for h in hotels:
+                    name = getattr(h, 'name', 'Luxury Suite')
+                    price = getattr(h, 'price_with_tax', 'Premium')
+                    loc = getattr(h, 'location', 'Sanctuary')
+                    hotel_list.append(f"- {name} in {loc}: ${price}/night.")
+                
+                # Update the variable we defined at the top
+                hotel_data = "\n".join(hotel_list)
+
+            # 3. THE AI CALL (Using the absolute most stable model string)
+            # Try "gemini-1.5-flash" first. If 404, use "models/gemini-1.5-flash"
             response = client.models.generate_content(
-                model="gemini-2.0-flash", # Try 2.0 first, then 1.5 if 2.0 fails
+                model="gemini-1.5-flash", 
                 contents=user_query,
                 config=types.GenerateContentConfig(
-                    system_instruction=f"You are the HotelHeaven Concierge. Data: {hotel_data}. End with 'Your Sanctuary awaits.'"
+                    system_instruction=f"You are the HotelHeaven Concierge. Available hotels:\n{hotel_data}\n\nRule: Be elegant and end with 'Your Sanctuary awaits.'"
                 )
             )
             
             return Response({"reply": response.text})
 
         except Exception as e:
-            # If 2.0 fails with the same error, change the model string above 
-            # to "models/gemini-1.5-flash-8b" (the most compatible version)
+            # This will show you the EXACT error in the chat bubble
             return Response({"reply": f"Registry Error: {str(e)}"}, status=200)
-            # 🛑 THIS WILL NOW SHOW YOU THE EXACT ERROR IN THE CHAT
-            error_msg = f"Registry Error: {str(e)}"
-            print(f"DEBUG: {error_msg}") # Check Vercel logs for this!
-            return Response({"reply": error_msg}, status=200)
