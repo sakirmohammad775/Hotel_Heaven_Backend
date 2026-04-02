@@ -101,34 +101,22 @@ class ConciergeBotView(APIView):
         user_query = request.data.get("message", "Hello")
         
         try:
-            # 🔹 2. GET DATA (With fallback for empty DB)
-            hotels = Hotel.objects.all()
-            hotel_data = ""
-            
-            if not hotels.exists():
-                hotel_data = "We currently have no rooms available in the registry."
-            else:
-                for h in hotels:
-                    # Using getattr to prevent crash if a field is missing
-                    name = getattr(h, 'name', 'A Luxury Suite')
-                    price = getattr(h, 'price_with_tax', 'Premium Rate')
-                    loc = getattr(h, 'location', 'Our Sanctuary')
-                    hotel_data += f"- {name} in {loc}: ${price}/night.\n"
-
-            # 🔹 3. THE 2026 AI CALL
-            # Note: Changed to gemini-1.5-flash as it's more stable for Free Tier
+            # 🔹 THE FIX: Use "models/gemini-2.0-flash" or "models/gemini-1.5-flash"
+            # Adding the "models/" prefix is often required by the v1beta endpoint
             response = client.models.generate_content(
-                model="gemini-1.5-flash", 
+                model="gemini-2.0-flash", # Try 2.0 first, then 1.5 if 2.0 fails
                 contents=user_query,
                 config=types.GenerateContentConfig(
-                    system_instruction=f"You are the HotelHeaven Concierge. Available hotels: {hotel_data}. Be elegant. End with 'Your Sanctuary awaits.'"
+                    system_instruction=f"You are the HotelHeaven Concierge. Data: {hotel_data}. End with 'Your Sanctuary awaits.'"
                 )
             )
             
-            # Ensure we send the .text specifically
             return Response({"reply": response.text})
 
         except Exception as e:
+            # If 2.0 fails with the same error, change the model string above 
+            # to "models/gemini-1.5-flash-8b" (the most compatible version)
+            return Response({"reply": f"Registry Error: {str(e)}"}, status=200)
             # 🛑 THIS WILL NOW SHOW YOU THE EXACT ERROR IN THE CHAT
             error_msg = f"Registry Error: {str(e)}"
             print(f"DEBUG: {error_msg}") # Check Vercel logs for this!
