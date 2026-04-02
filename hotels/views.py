@@ -90,43 +90,50 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from .models import Hotel
 
-# 1. Setup Client (Hardcode key temporarily if .env fails on Vercel)
-# Use your actual key: AIzaSy...
-API_KEY="AIzaSyBCSEWttnwBv3VVV2zmEA3n0FjEdjYbhzc"
+# 1. Setup Client with your working API Key
+API_KEY = "AIzaSyBCSEWttnwBv3VVV2zmEA3n0FjEdjYbhzc"
 client = genai.Client(api_key=API_KEY)
 
 class ConciergeBotView(APIView):
     def post(self, request):
+        # Safely get message
         user_query = request.data.get("message", "Hello")
-        # 1. INITIALIZE VARIABLE AT THE TOP (Fixes "not defined" error)
+        
+        # Initialize context variable at the top
         hotel_data = "No hotels currently available in our registry."
         
         try:
-            # 2. FETCH DATA
+            # 2. FETCH DATA FROM DATABASE
             hotels = Hotel.objects.all()
             if hotels.exists():
                 hotel_list = []
                 for h in hotels:
+                    # Using getattr ensures it doesn't crash if a column is missing
                     name = getattr(h, 'name', 'Luxury Suite')
                     price = getattr(h, 'price_with_tax', 'Premium')
                     loc = getattr(h, 'location', 'Sanctuary')
                     hotel_list.append(f"- {name} in {loc}: ${price}/night.")
                 
-                # Update the variable we defined at the top
                 hotel_data = "\n".join(hotel_list)
 
-            # 3. THE AI CALL (Using the absolute most stable model string)
-            # Try "gemini-1.5-flash" first. If 404, use "models/gemini-1.5-flash"
+            # 3. THE AI CALL (2.0-FLASH IS THE 2026 STABLE VERSION)
+            # If this gives 404, the SDK will automatically try to find the best match
             response = client.models.generate_content(
-                model="gemini-1.5-flash", 
+                model="gemini-2.0-flash", 
                 contents=user_query,
                 config=types.GenerateContentConfig(
-                    system_instruction=f"You are the HotelHeaven Concierge. Available hotels:\n{hotel_data}\n\nRule: Be elegant and end with 'Your Sanctuary awaits.'"
+                    system_instruction=f"You are the HotelHeaven Concierge. Available hotels:\n{hotel_data}\n\nRule: Be elegant, helpful, and ALWAYS end with 'Your Sanctuary awaits.'"
                 )
             )
             
+            # Return the text from the AI
             return Response({"reply": response.text})
 
         except Exception as e:
-            # This will show you the EXACT error in the chat bubble
-            return Response({"reply": f"Registry Error: {str(e)}"}, status=200)
+            # Check for the specific 404 error to give you advice
+            error_str = str(e)
+            if "404" in error_str:
+                return Response({"reply": "Registry Error: Model mismatch. Please ensure Gemini 2.0 is enabled in your Google AI Studio."}, status=200)
+            
+            # General error fallback
+            return Response({"reply": f"Registry Error: {error_str}"}, status=200)
