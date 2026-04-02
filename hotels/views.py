@@ -92,38 +92,44 @@ from .models import Hotel
 
 # 1. Setup Client (Hardcode key temporarily if .env fails on Vercel)
 # Use your actual key: AIzaSy...
-GEMINI_KEY = os.getenv("GEMINI_API_KEY", "AIzaSyBCSEWttnwBv3VVV2zmEA3n0FjEdjYbhzc")
-client = genai.Client(api_key=GEMINI_KEY)
+API_KEY="AIzaSyBCSEWttnwBv3VVV2zmEA3n0FjEdjYbhzc"
+client = genai.Client(api_key=API_KEY)
 
 class ConciergeBotView(APIView):
     def post(self, request):
-        user_query = request.data.get("message", "")
+        # Get message safely
+        user_query = request.data.get("message", "Hello")
         
         try:
-            # 2. Get Data Safely
+            # 🔹 2. GET DATA (With fallback for empty DB)
             hotels = Hotel.objects.all()
-            hotel_list = []
-            for h in hotels:
-                # Use getattr to avoid crashes if a field is missing
-                name = getattr(h, 'name', 'Unknown Hotel')
-                loc = getattr(h, 'location', 'Bangladesh')
-                price = getattr(h, 'price_with_tax', 'Inquire for price')
-                hotel_list.append(f"- {name} in {loc}: ${price}/night.")
+            hotel_data = ""
+            
+            if not hotels.exists():
+                hotel_data = "We currently have no rooms available in the registry."
+            else:
+                for h in hotels:
+                    # Using getattr to prevent crash if a field is missing
+                    name = getattr(h, 'name', 'A Luxury Suite')
+                    price = getattr(h, 'price_with_tax', 'Premium Rate')
+                    loc = getattr(h, 'location', 'Our Sanctuary')
+                    hotel_data += f"- {name} in {loc}: ${price}/night.\n"
 
-            context = "\n".join(hotel_list) if hotel_list else "No hotels currently available."
-
-            # 3. AI Generation (Gemini 2.0 Syntax)
+            # 🔹 3. THE 2026 AI CALL
+            # Note: Changed to gemini-1.5-flash as it's more stable for Free Tier
             response = client.models.generate_content(
-                model="gemini-2.0-flash",
+                model="gemini-1.5-flash", 
                 contents=user_query,
                 config=types.GenerateContentConfig(
-                    system_instruction=f"You are the HotelHeaven Concierge. Data: {context}. Be luxury. End with 'Your Sanctuary awaits.'"
+                    system_instruction=f"You are the HotelHeaven Concierge. Available hotels: {hotel_data}. Be elegant. End with 'Your Sanctuary awaits.'"
                 )
             )
             
+            # Ensure we send the .text specifically
             return Response({"reply": response.text})
 
         except Exception as e:
-            # This prints the REAL error in your Vercel Logs
-            print(f"AI ERROR: {str(e)}") 
-            return Response({"reply": "My apologies, the registry is silent."}, status=200) # Status 200 avoids frontend crash
+            # 🛑 THIS WILL NOW SHOW YOU THE EXACT ERROR IN THE CHAT
+            error_msg = f"Registry Error: {str(e)}"
+            print(f"DEBUG: {error_msg}") # Check Vercel logs for this!
+            return Response({"reply": error_msg}, status=200)
