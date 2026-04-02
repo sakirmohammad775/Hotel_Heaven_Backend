@@ -52,6 +52,7 @@ INSTALLED_APPS = [
     "users",
     "bookings",
     "debug_toolbar",
+    
 ]
 
 MIDDLEWARE = [
