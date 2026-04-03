@@ -1,15 +1,14 @@
 {
-  "version": 2,
-  "builds": [
-    {
-      "src": "hotel_heaven/wsgi.py",
-      "use": "@vercel/python"
-    }
-  ],
-  "routes": [
-    {
-      "src": "/(.*)",
-      "dest": "hotel_heaven/wsgi.py"
-    }
-  ]
-}
+    "builds": [{
+      "src": "hotelheaven/wsgi.py",
+      "use": "@vercel/python",
+      "config": { "maxLambdaSize": "15mb", "runtime": "python3.11.3" }
+    }],
+
+    "routes": [
+      {
+        "src": "/(.*)",
+        "dest": "hotelheaven/wsgi.py"
+      }
+    ]
+} 
