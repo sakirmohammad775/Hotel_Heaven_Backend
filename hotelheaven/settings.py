@@ -51,6 +51,7 @@ INSTALLED_APPS = [
     "hotels",
     "users",
     "bookings",
+    "chatbot",
     "debug_toolbar",
     
 ]

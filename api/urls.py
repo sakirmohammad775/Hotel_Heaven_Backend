@@ -35,6 +35,8 @@ urlpatterns = [
     # CHECK USER BOOKED HOTEL
     path("bookings/has-booked/<int:hotel_id>/", HasBookedHotel.as_view()),
     
+    #For AI
+    path("",include("chatbot.urls"))
     
     # # 🔹 Add this line exactly here
     # path("concierge/", ConciergeBotView.as_view(), name="concierge-bot"),
