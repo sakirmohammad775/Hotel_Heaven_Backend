@@ -1,70 +1,93 @@
-annotated-types==0.7.0
-anyio==4.13.0
-asgiref==3.11.1
-certifi==2026.2.25
-cffi==2.0.0
-charset-normalizer==3.4.6
-cloudinary==1.44.1
-colorama==0.4.6
-cryptography==46.0.5
-defusedxml==0.7.1
-distro==1.9.0
+# annotated-types==0.7.0
+# anyio==4.13.0
+# asgiref==3.11.1
+# certifi==2026.2.25
+# cffi==2.0.0
+# charset-normalizer==3.4.6
+# cloudinary==1.44.1
+# colorama==0.4.6
+# cryptography==46.0.5
+# defusedxml==0.7.1
+# distro==1.9.0
+# Django==6.0.3
+# django-cloudinary-storage==0.3.0
+# django-cors-headers==4.9.0
+# django-debug-toolbar==6.2.0
+# django-filter==25.2
+# djangorestframework==3.16.1
+# djangorestframework_simplejwt==5.5.1
+# djoser==2.3.3
+# drf-nested-routers==0.95.0
+# drf-yasg==1.21.15
+# google-ai-generativelanguage==0.6.15
+# google-api-core==2.30.1
+# google-api-python-client==2.193.0
+# google-auth==2.49.1
+# google-auth-httplib2==0.3.1
+# google-genai==1.70.0
+# googleapis-common-protos==1.73.1
+# grpcio==1.80.0
+# grpcio-status==1.71.2
+# h11==0.16.0
+# httpcore==1.0.9
+# httplib2==0.31.2
+# httpx==0.28.1
+# idna==3.11
+# inflection==0.5.1
+# oauthlib==3.3.1
+# packaging==26.0
+# pillow==12.1.1
+# proto-plus==1.27.2
+# protobuf==5.29.6
+# psycopg2-binary==2.9.11
+# pyasn1==0.6.3
+# pyasn1_modules==0.4.2
+# pycparser==3.0
+# pydantic==2.12.5
+# pydantic_core==2.41.5
+# PyJWT==2.12.1
+# pyparsing==3.3.2
+# python-decouple==3.8
+# python3-openid==3.2.0
+# pytz==2026.1.post1
+# PyYAML==6.0.3
+# requests==2.32.5
+# requests-oauthlib==2.0.0
+# six==1.17.0
+# sniffio==1.3.1
+# social-auth-app-django==5.7.0
+# social-auth-core==4.8.5
+# sqlparse==0.5.5
+# sslcommerz-lib==1.0
+# tenacity==9.1.4
+# tqdm==4.67.3
+# typing-inspection==0.4.2
+# typing_extensions==4.15.0
+# tzdata==2025.3
+# uritemplate==4.2.0
+# urllib3==2.6.3
+# websockets==16.0
+# whitenoise==6.12.0
+
+
+# Core Django & API
 Django==6.0.3
-django-cloudinary-storage==0.3.0
-django-cors-headers==4.9.0
-django-debug-toolbar==6.2.0
-django-filter==25.2
 djangorestframework==3.16.1
-djangorestframework_simplejwt==5.5.1
-djoser==2.3.3
-drf-nested-routers==0.95.0
-drf-yasg==1.21.15
-google-ai-generativelanguage==0.6.15
-google-api-core==2.30.1
-google-api-python-client==2.193.0
-google-auth==2.49.1
-google-auth-httplib2==0.3.1
-google-genai==1.70.0
-googleapis-common-protos==1.73.1
-grpcio==1.80.0
-grpcio-status==1.71.2
-h11==0.16.0
-httpcore==1.0.9
-httplib2==0.31.2
-httpx==0.28.1
-idna==3.11
-inflection==0.5.1
-oauthlib==3.3.1
-packaging==26.0
-pillow==12.1.1
-proto-plus==1.27.2
-protobuf==5.29.6
-psycopg2-binary==2.9.11
-pyasn1==0.6.3
-pyasn1_modules==0.4.2
-pycparser==3.0
-pydantic==2.12.5
-pydantic_core==2.41.5
-PyJWT==2.12.1
-pyparsing==3.3.2
-python-decouple==3.8
-python3-openid==3.2.0
-pytz==2026.1.post1
-PyYAML==6.0.3
-requests==2.32.5
-requests-oauthlib==2.0.0
-six==1.17.0
-sniffio==1.3.1
-social-auth-app-django==5.7.0
-social-auth-core==4.8.5
-sqlparse==0.5.5
-sslcommerz-lib==1.0
-tenacity==9.1.4
-tqdm==4.67.3
-typing-inspection==0.4.2
-typing_extensions==4.15.0
-tzdata==2025.3
-uritemplate==4.2.0
-urllib3==2.6.3
-websockets==16.0
+django-cors-headers==4.9.0
 whitenoise==6.12.0
+
+# Database & Environment
+psycopg2-binary==2.9.11
+python-dotenv==1.0.1
+dj-database-url==2.1.0
+
+# Gemini AI (The only Google lib you actually need for the SDK)
+google-genai==1.70.0
+
+# Images (Cloudinary)
+cloudinary==1.44.1
+django-cloudinary-storage==0.3.0
+pillow==12.1.1
+
+# Auth (If using JWT)
+djangorestframework_simplejwt==5.5.1
