@@ -18,7 +18,7 @@ class ChatBotView(APIView):
     def post(self, request):
         user_message = request.data.get("message")
 
-        # ✅ Validate input
+        # ✅ 1. Validate input
         if not user_message:
             return Response(
                 {"error": "Message is required"},
@@ -27,6 +27,7 @@ class ChatBotView(APIView):
 
         client = get_openai_client()
 
+        # ✅ Default filters (fallback safe)
         filters = {
             "location": None,
             "max_price": None,
@@ -45,48 +46,90 @@ class ChatBotView(APIView):
                         {
                             "role": "system",
                             "content": """
+You are a strict JSON generator.
+
 Extract hotel search filters from user message.
 
-Return ONLY valid JSON:
+Rules:
+- Return ONLY valid JSON
+- No explanation, no extra text
+- If not found → use null
+- Always include all keys
+
+Keys:
+- location (string)
+- max_price (number)
+- min_price (number)
+- rooms (number)
+
+Examples:
+
+Input: cheap hotel in Cox's Bazar under 200
+Output:
 {
-  "location": string or null,
-  "max_price": number or null,
-  "min_price": number or null,
-  "rooms": number or null
+  "location": "Cox's Bazar",
+  "max_price": 200,
+  "min_price": null,
+  "rooms": null
 }
-""",
+
+Input: hotel in dhaka above 100 with 2 rooms
+Output:
+{
+  "location": "Dhaka",
+  "max_price": null,
+  "min_price": 100,
+  "rooms": 2
+}
+"""
                         },
                         {"role": "user", "content": user_message},
                     ],
-                    temperature=0,
                 )
 
                 raw_output = ai_response.choices[0].message.content.strip()
 
-                # ✅ Clean possible bad formatting
+                # ✅ Remove markdown if exists
                 raw_output = raw_output.replace("```json", "").replace("```", "").strip()
 
-                filters = json.loads(raw_output)
+                parsed = json.loads(raw_output)
+
+                # ✅ Safe assign (avoid missing keys)
+                filters["location"] = parsed.get("location")
+                filters["max_price"] = parsed.get("max_price")
+                filters["min_price"] = parsed.get("min_price")
+                filters["rooms"] = parsed.get("rooms")
 
             except Exception as e:
-                print("AI ERROR:", e)
+                print("❌ AI ERROR:", e)
+
+        # ================================
+        # 🧠 DEBUG (VERY IMPORTANT)
+        # ================================
+        print("USER MESSAGE:", user_message)
+        print("AI FILTERS:", filters)
 
         # ================================
         # 🧠 STEP 2: Django Filtering
         # ================================
         queryset = Hotel.objects.all()
 
-        if filters.get("location"):
-            queryset = queryset.filter(location__icontains=filters["location"])
+        location = filters.get("location")
+        max_price = filters.get("max_price")
+        min_price = filters.get("min_price")
+        rooms = filters.get("rooms")
 
-        if filters.get("max_price"):
-            queryset = queryset.filter(price__lte=filters["max_price"])
+        if location:
+            queryset = queryset.filter(location__icontains=location)
 
-        if filters.get("min_price"):
-            queryset = queryset.filter(price__gte=filters["min_price"])
+        if max_price is not None:
+            queryset = queryset.filter(price__lte=max_price)
 
-        if filters.get("rooms"):
-            queryset = queryset.filter(available_rooms__gte=filters["rooms"])
+        if min_price is not None:
+            queryset = queryset.filter(price__gte=min_price)
+
+        if rooms is not None:
+            queryset = queryset.filter(available_rooms__gte=rooms)
 
         queryset = queryset[:5]
 
@@ -104,19 +147,21 @@ Return ONLY valid JSON:
                 "image": h.images.first().image.url if h.images.exists() else None,
             })
 
+        # ✅ Dynamic message
+        message = f"Found {len(results)} hotels"
+
+        if location:
+            message += f" in {location}"
+        if max_price:
+            message += f" under {max_price}"
+        if min_price:
+            message += f" above {min_price}"
+
         return Response({
             "filters": filters,
             "results": results,
-            "message": f"Found {len(results)} hotels"
+            "message": message
         })
-        
-        
-        
-        
-
-
-
-
 
 # React Chat UI
 #      ↓
