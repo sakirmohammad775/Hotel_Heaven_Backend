@@ -89,9 +89,11 @@ from google.genai import types
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from .models import Hotel
+from dotenv import load_dotenv
+load_dotenv()
 
 # 1. Setup Client with your working API Key
-API_KEY = "AIzaSyBCSEWttnwBv3VVV2zmEA3n0FjEdjYbhzc"
+API_KEY = os.getenv("GEMINI_API_KEY")
 client = genai.Client(api_key=API_KEY)
 
 class ConciergeBotView(APIView):
@@ -104,7 +106,7 @@ class ConciergeBotView(APIView):
         
         try:
             # 2. FETCH DATA FROM DATABASE
-            hotels = Hotel.objects.all()
+            hotels = Hotel.objects.all()[:3]
             if hotels.exists():
                 hotel_list = []
                 for h in hotels:
@@ -119,7 +121,7 @@ class ConciergeBotView(APIView):
             # 3. THE AI CALL (2.0-FLASH IS THE 2026 STABLE VERSION)
             # If this gives 404, the SDK will automatically try to find the best match
             response = client.models.generate_content(
-                model="gemini-2.0-flash", 
+                model="gemini-1.5-flash", 
                 contents=user_query,
                 config=types.GenerateContentConfig(
                     system_instruction=f"You are the HotelHeaven Concierge. Available hotels:\n{hotel_data}\n\nRule: Be elegant, helpful, and ALWAYS end with 'Your Sanctuary awaits.'"

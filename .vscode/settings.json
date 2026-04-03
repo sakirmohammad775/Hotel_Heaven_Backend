@@ -2,6 +2,7 @@
     "cSpell.words": [
         "corsheaders",
         "djoser",
+        "dotenv",
         "genai",
         "hotelheaven",
         "simplejwt",
