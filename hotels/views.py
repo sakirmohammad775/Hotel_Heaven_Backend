@@ -83,20 +83,20 @@ class ReviewViewSet(ModelViewSet):
 
 
 
-import os
-from google import genai
-from google.genai import types
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from .models import Hotel
-from dotenv import load_dotenv
-load_dotenv()
+# import os
+# from google import genai
+# from google.genai import types
+# from rest_framework.views import APIView
+# from rest_framework.response import Response
+# from .models import Hotel
+# from dotenv import load_dotenv
+# load_dotenv()
 
-# 1. Setup Client with your working API Key
-API_KEY = os.getenv("GEMINI_API_KEY")
-client = genai.Client(api_key=API_KEY)
+# # 1. Setup Client with your working API Key
+# API_KEY = os.getenv("GEMINI_API_KEY")
+# client = genai.Client(api_key=API_KEY)
 
-class ConciergeBotView(APIView):
+# class ConciergeBotView(APIView):
     def post(self, request):
         # Safely get message
         user_query = request.data.get("message", "Hello")

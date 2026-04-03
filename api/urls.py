@@ -1,5 +1,5 @@
 from django.urls import path, include
-from hotels.views import HotelViewSet, CategoryViewSet, ReviewViewSet, HotelImageViewSet,ConciergeBotView
+from hotels.views import HotelViewSet, CategoryViewSet, ReviewViewSet, HotelImageViewSet
 from bookings.views import CartViewSet, CartItemViewSet, BookingViewSet, HasBookedHotel, payment_success, payment_fail, payment_cancel, initiate_payment
 from rest_framework_nested import routers
 
@@ -36,7 +36,7 @@ urlpatterns = [
     path("bookings/has-booked/<int:hotel_id>/", HasBookedHotel.as_view()),
     
     
-    # 🔹 Add this line exactly here
-    path("concierge/", ConciergeBotView.as_view(), name="concierge-bot"),
+    # # 🔹 Add this line exactly here
+    # path("concierge/", ConciergeBotView.as_view(), name="concierge-bot"),
     
 ]
