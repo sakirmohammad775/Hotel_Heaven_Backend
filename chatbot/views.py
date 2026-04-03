@@ -1,174 +1,161 @@
 import os
+import re
 import json
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from openai import OpenAI
 from hotels.models import Hotel
 
 
-def get_openai_client():
-    api_key = os.getenv("OPENAI_API_KEY")
-    if not api_key:
+def extract_filters_with_keywords(message):
+    """Fallback filter extractor using regex — no AI needed."""
+    msg = message.lower()
+    filters = {
+        "location": None,
+        "max_price": None,
+        "min_price": None,
+        "rooms": None,
+    }
+
+    # Location detection
+    locations = ["cox's bazar", "coxs bazar", "cox bazar",
+                 "dhaka", "chittagong", "chattogram", "sylhet"]
+    for loc in locations:
+        if loc in msg:
+            # normalize
+            if "cox" in loc:
+                filters["location"] = "Cox's Bazar"
+            elif "chattogram" in loc or "chittagong" in loc:
+                filters["location"] = "Chattogram"
+            elif "dhaka" in loc:
+                filters["location"] = "Dhaka"
+            elif "sylhet" in loc:
+                filters["location"] = "Sylhet"
+            break
+
+    # Price: "under 200", "below 150", "less than 300"
+    match = re.search(r'(under|below|less than|max|upto|up to)\s*\$?(\d+)', msg)
+    if match:
+        filters["max_price"] = int(match.group(2))
+
+    # Price: "above 100", "over 100", "more than 100", "minimum 100"
+    match = re.search(r'(above|over|more than|min|minimum|from)\s*\$?(\d+)', msg)
+    if match:
+        filters["min_price"] = int(match.group(2))
+
+    # Rooms: "2 rooms", "at least 3 rooms"
+    match = re.search(r'(\d+)\s*rooms?', msg)
+    if match:
+        filters["rooms"] = int(match.group(1))
+
+    return filters
+
+
+def extract_filters_with_ai(message):
+    """Use OpenAI if key available."""
+    try:
+        from openai import OpenAI
+        api_key = os.getenv("OPENAI_API_KEY")
+        if not api_key:
+            return None
+
+        client = OpenAI(api_key=api_key)
+        ai_response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {
+                    "role": "system",
+                    "content": """Extract hotel search filters from user message.
+Return ONLY valid JSON with these keys:
+- location (string or null)
+- max_price (number or null)
+- min_price (number or null)
+- rooms (number or null)
+
+No explanation. No markdown. Just JSON."""
+                },
+                {"role": "user", "content": message},
+            ],
+        )
+        raw = ai_response.choices[0].message.content.strip()
+        raw = raw.replace("```json", "").replace("```", "").strip()
+        return json.loads(raw)
+
+    except Exception as e:
+        print("AI extraction failed:", e)
         return None
-    return OpenAI(api_key=api_key)
 
 
 class ChatBotView(APIView):
-    def post(self, request):
-        user_message = request.data.get("message")
 
-        # ✅ 1. Validate input
+    def post(self, request):
+        user_message = request.data.get("message", "").strip()
+
         if not user_message:
             return Response(
                 {"error": "Message is required"},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        client = get_openai_client()
+        # ── Try AI first, fall back to keyword regex ──────────────
+        parsed = extract_filters_with_ai(user_message)
+        if not parsed:
+            parsed = extract_filters_with_keywords(user_message)
+            source = "keyword"
+        else:
+            source = "ai"
 
-        # ✅ Default filters (fallback safe)
         filters = {
-            "location": None,
-            "max_price": None,
-            "min_price": None,
-            "rooms": None,
+            "location":  parsed.get("location"),
+            "max_price": parsed.get("max_price"),
+            "min_price": parsed.get("min_price"),
+            "rooms":     parsed.get("rooms"),
         }
 
-        # ================================
-        # 🧠 STEP 1: AI → Extract Filters
-        # ================================
-        if client:
-            try:
-                ai_response = client.chat.completions.create(
-                    model="gpt-4o-mini",
-                    messages=[
-                        {
-                            "role": "system",
-                            "content": """
-You are a strict JSON generator.
+        print(f"[{source.upper()}] Message: {user_message}")
+        print(f"[{source.upper()}] Filters: {filters}")
 
-Extract hotel search filters from user message.
+        # ── Django ORM filtering ───────────────────────────────────
+        queryset = Hotel.objects.prefetch_related("images").all()
 
-Rules:
-- Return ONLY valid JSON
-- No explanation, no extra text
-- If not found → use null
-- Always include all keys
-
-Keys:
-- location (string)
-- max_price (number)
-- min_price (number)
-- rooms (number)
-
-Examples:
-
-Input: cheap hotel in Cox's Bazar under 200
-Output:
-{
-  "location": "Cox's Bazar",
-  "max_price": 200,
-  "min_price": null,
-  "rooms": null
-}
-
-Input: hotel in dhaka above 100 with 2 rooms
-Output:
-{
-  "location": "Dhaka",
-  "max_price": null,
-  "min_price": 100,
-  "rooms": 2
-}
-"""
-                        },
-                        {"role": "user", "content": user_message},
-                    ],
-                )
-
-                raw_output = ai_response.choices[0].message.content.strip()
-
-                # ✅ Remove markdown if exists
-                raw_output = raw_output.replace("```json", "").replace("```", "").strip()
-
-                parsed = json.loads(raw_output)
-
-                # ✅ Safe assign (avoid missing keys)
-                filters["location"] = parsed.get("location")
-                filters["max_price"] = parsed.get("max_price")
-                filters["min_price"] = parsed.get("min_price")
-                filters["rooms"] = parsed.get("rooms")
-
-            except Exception as e:
-                print("❌ AI ERROR:", e)
-
-        # ================================
-        # 🧠 DEBUG (VERY IMPORTANT)
-        # ================================
-        print("USER MESSAGE:", user_message)
-        print("AI FILTERS:", filters)
-
-        # ================================
-        # 🧠 STEP 2: Django Filtering
-        # ================================
-        queryset = Hotel.objects.all()
-
-        location = filters.get("location")
-        max_price = filters.get("max_price")
-        min_price = filters.get("min_price")
-        rooms = filters.get("rooms")
-
-        if location:
-            queryset = queryset.filter(location__icontains=location)
-
-        if max_price is not None:
-            queryset = queryset.filter(price__lte=max_price)
-
-        if min_price is not None:
-            queryset = queryset.filter(price__gte=min_price)
-
-        if rooms is not None:
-            queryset = queryset.filter(available_rooms__gte=rooms)
+        if filters["location"]:
+            queryset = queryset.filter(location__icontains=filters["location"])
+        if filters["max_price"] is not None:
+            queryset = queryset.filter(price__lte=filters["max_price"])
+        if filters["min_price"] is not None:
+            queryset = queryset.filter(price__gte=filters["min_price"])
+        if filters["rooms"] is not None:
+            queryset = queryset.filter(available_rooms__gte=filters["rooms"])
 
         queryset = queryset[:5]
 
-        # ================================
-        # 🧠 STEP 3: Format Response
-        # ================================
+        # ── Serialize ──────────────────────────────────────────────
         results = []
         for h in queryset:
+            first_image = h.images.first()
             results.append({
-                "id": h.id,
-                "name": h.name,
-                "price": float(h.price),
-                "location": h.location,
+                "id":              h.id,
+                "name":            h.name,
+                "description":     h.description,
+                "price":           float(h.price),
+                "price_with_tax":  round(float(h.price) * 1.10, 2),
+                "location":        h.location,
                 "available_rooms": h.available_rooms,
-                "image": h.images.first().image.url if h.images.exists() else None,
+                "image": first_image.image.url if first_image else None,
             })
 
-        # ✅ Dynamic message
-        message = f"Found {len(results)} hotels"
-
-        if location:
-            message += f" in {location}"
-        if max_price:
-            message += f" under {max_price}"
-        if min_price:
-            message += f" above {min_price}"
+        # ── Build message ──────────────────────────────────────────
+        if results:
+            msg = f"Found {len(results)} hotel{'s' if len(results) > 1 else ''}"
+            if filters["location"]: msg += f" in {filters['location']}"
+            if filters["max_price"]: msg += f" under ${filters['max_price']}"
+            if filters["min_price"]: msg += f" above ${filters['min_price']}"
+        else:
+            msg = "No hotels found matching your criteria. Try different filters."
 
         return Response({
+            "message": msg,
             "filters": filters,
             "results": results,
-            "message": message
+            "source":  source,
         })
-
-# React Chat UI
-#      ↓
-# Django API (/api/v1/concierge/)
-#      ↓
-# AI → convert message → structured filters (JSON)
-#      ↓
-# Django ORM filter (Hotel model)
-#      ↓
-# Return hotels → React UI
